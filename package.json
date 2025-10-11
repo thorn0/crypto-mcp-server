@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "netlify dev",
     "deploy": "netlify deploy --prod",
-    "test": "node test-mcp.mjs",
+    "test": "node testMcp.mjs",
     "lint": "eslint . --fix"
   },
   "keywords": [
