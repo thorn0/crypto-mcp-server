@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reddit MCP Server</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .container {
+        background: white;
+        border-radius: 16px;
+        padding: 48px;
+        max-width: 600px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 16px;
+        font-size: 32px;
+      }
+      p {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 24px;
+      }
+      .badge {
+        display: inline-block;
+        background: #10b981;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 24px;
+      }
+      .endpoint {
+        background: #f3f4f6;
+        padding: 16px;
+        border-radius: 8px;
+        font-family: monospace;
+        word-break: break-all;
+        margin-bottom: 24px;
+        border-left: 4px solid #667eea;
+      }
+      .features {
+        list-style: none;
+        margin-bottom: 24px;
+      }
+      .features li {
+        padding: 8px 0;
+        color: #555;
+      }
+      .features li:before {
+        content: "✓ ";
+        color: #10b981;
+        font-weight: bold;
+        margin-right: 8px;
+      }
+      .cta {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: background 0.2s;
+      }
+      .cta:hover {
+        background: #5568d3;
+      }
+      .footer {
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 14px;
+        color: #999;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <span class="badge">🟢 ACTIVE</span>
+      <h1>Reddit MCP Server</h1>
+      <p>
+        Model Context Protocol server for ChatGPT that fetches latest daily
+        discussion threads from crypto subreddits.
+      </p>
+
+      <h3 style="margin-bottom: 12px; color: #333">MCP Endpoint:</h3>
+      <div class="endpoint" id="endpoint">
+        <span id="url">Loading...</span>
+      </div>
+
+      <h3 style="margin-bottom: 12px; color: #333">Features:</h3>
+      <ul class="features">
+        <li>Fetches daily threads from r/BitcoinMarkets & r/ethereum</li>
+        <li>Filters comments from last 24 hours (configurable)</li>
+        <li>Excludes low-quality comments (score threshold: -10)</li>
+        <li>Includes comment chains with parent references</li>
+        <li>Deployed as Netlify Edge Function for cost-effectiveness</li>
+      </ul>
+
+      <a href="https://github.com" class="cta">View Documentation</a>
+
+      <div class="footer">
+        Powered by Netlify Edge Functions • MCP Protocol v2024-11-05
+      </div>
+    </div>
+
+    <script>
+      // Display the MCP endpoint URL
+      const url = window.location.origin + "/mcp";
+      document.getElementById("url").textContent = url;
+    </script>
+  </body>
+</html>

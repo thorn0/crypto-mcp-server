@@ -1,0 +1,29 @@
+{
+  "name": "mcp-reddit-server",
+  "version": "1.0.0",
+  "description": "MCP server for ChatGPT that fetches latest daily threads from r/BitcoinMarkets and r/ethereum",
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev",
+    "deploy": "netlify deploy --prod",
+    "test": "node test-mcp.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "keywords": [
+    "mcp",
+    "chatgpt",
+    "reddit",
+    "netlify",
+    "edge-functions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@th2025/eslint-config": "0.0.17",
+    "eslint": "9.37.0",
+    "eslint-config-prettier": "10.1.8",
+    "netlify-cli": "^17.0.0",
+    "prettier": "3.6.2"
+  }
+}

@@ -1,0 +1,13 @@
+---
+description: General Rules
+globs:
+alwaysApply: true
+---
+
+Look at the code with fresh eyes of a senior engineer acting as a ruthless refactorer. Keep things simple, robust, elegant, and minimalistic. Make it beautiful! And minimalistic! And **truly** elegant! And without redundant code. Especially without redundant code. Ruthlessly eliminate all redundancy you can find. Clean maintainable robust code is THE GOAL.
+
+Note that cramming everything into one line most of the time doesn't really make code elegant. Prettier will reformat it anyway! Focus on LOGIC redundancy, not formatting.
+
+Be aware that there are tons of non-obvious gotchas in this code. Only some of them are covered by tests.
+
+Don't focus too much on creating MD files. Put only really essential stuff there. Clean up those files mercilessly and brutally. Never create Markdown reports about your action unless asked explicitly. Don't create CHANGELOG.md unless asked to.
