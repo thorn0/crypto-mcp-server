@@ -1,47 +1,48 @@
 import { exportRedditDailyComments } from "../../reddit.mjs";
 
-const TOOLS = [
-  {
-    description:
-      "Fetches the latest daily discussion threads from r/BitcoinMarkets or r/ethereum, including recent comments from the last 24 hours. Returns formatted comments with timestamps, authors, scores, and reply chains.",
-    inputSchema: {
-      properties: {
-        intervalHours: {
-          default: 24,
-          description:
-            "Number of hours to look back for recent comments (default: 24)",
-          type: "number",
-        },
-        subreddit: {
-          description:
-            "The subreddit to fetch from (e.g., 'BitcoinMarkets' or 'ethereum')",
-          enum: ["BitcoinMarkets", "ethereum"],
-          type: "string",
-        },
+const TOOL = {
+  description:
+    "Fetches latest daily discussion threads from r/BitcoinMarkets or r/ethereum with recent comments",
+  inputSchema: {
+    properties: {
+      intervalHours: {
+        default: 24,
+        description: "Hours to look back (default: 24)",
+        type: "number",
       },
-      required: ["subreddit"],
-      type: "object",
+      subreddit: {
+        description: "Subreddit to fetch from",
+        enum: ["BitcoinMarkets", "ethereum"],
+        type: "string",
+      },
     },
-    name: "fetch_reddit_daily_threads",
+    required: ["subreddit"],
+    type: "object",
   },
-];
+  name: "fetch_reddit_daily_threads",
+};
+
+const createResponse = (result, id) => ({
+  jsonrpc: "2.0",
+  ...result,
+  ...(id !== undefined && { id }),
+});
 
 const handlers = {
-  initialize: () => ({
-    jsonrpc: "2.0",
-    result: {
-      capabilities: { tools: {} },
-      protocolVersion: "2024-11-05",
-      serverInfo: { name: "reddit-daily-threads-server", version: "1.0.0" },
-    },
-  }),
+  initialize: () =>
+    createResponse({
+      result: {
+        capabilities: { tools: {} },
+        protocolVersion: "2024-11-05",
+        serverInfo: { name: "reddit-daily-threads-server", version: "1.0.0" },
+      },
+    }),
 
   "tools/call": async (params) => {
-    if (params.name !== "fetch_reddit_daily_threads") {
-      return {
+    if (params.name !== TOOL.name) {
+      return createResponse({
         error: { code: -32_601, message: `Tool not found: ${params.name}` },
-        jsonrpc: "2.0",
-      };
+      });
     }
 
     try {
@@ -49,27 +50,32 @@ const handlers = {
         intervalHours: params.arguments?.intervalHours || 24,
         subreddit: params.arguments?.subreddit || "BitcoinMarkets",
       });
-
-      return {
-        jsonrpc: "2.0",
+      return createResponse({
         result: { content: [{ text: content, type: "text" }] },
-      };
+      });
     } catch (error) {
-      return {
+      return createResponse({
         error: {
           code: -32_000,
           message: error.message || "Failed to fetch Reddit threads",
         },
-        jsonrpc: "2.0",
-      };
+      });
     }
   },
 
-  "tools/list": () => ({
-    jsonrpc: "2.0",
-    result: { tools: TOOLS },
-  }),
+  "tools/list": () => createResponse({ result: { tools: [TOOL] } }),
 };
+
+const jsonResponse = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    headers: {
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Origin": "*",
+      "Content-Type": "application/json",
+    },
+    status,
+  });
 
 export default async (request) => {
   if (request.method !== "POST") {
@@ -83,47 +89,34 @@ export default async (request) => {
     const body = await request.json();
 
     if (body.jsonrpc !== "2.0") {
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        createResponse({
           error: {
             code: -32_600,
             message: "Invalid Request: jsonrpc must be 2.0",
           },
-          jsonrpc: "2.0",
         }),
-        { headers: { "Content-Type": "application/json" }, status: 400 }
+        400,
       );
     }
 
     const handler = handlers[body.method];
     const result = handler
       ? await handler(body.params)
-      : {
+      : createResponse({
           error: { code: -32_601, message: `Method not found: ${body.method}` },
-          jsonrpc: "2.0",
-        };
+        });
 
-    if (body.id !== undefined) result.id = body.id;
-
-    return new Response(JSON.stringify(result), {
-      headers: {
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json",
-      },
-      status: 200,
-    });
+    return jsonResponse(createResponse(result, body.id));
   } catch (error) {
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      createResponse({
         error: {
           code: -32_700,
           message: "Parse error: " + (error.message || "Invalid JSON"),
         },
-        jsonrpc: "2.0",
       }),
-      { headers: { "Content-Type": "application/json" }, status: 400 }
+      400,
     );
   }
 };

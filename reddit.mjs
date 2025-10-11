@@ -13,29 +13,31 @@ const compact = (s) =>
     .join("\n");
 
 async function getCredentials() {
-  // Try environment variables first (production/Deno)
   if (typeof Deno !== "undefined") {
-    const envCreds = {
-      clientId: Deno.env.get("REDDIT_CLIENT_ID"),
-      clientSecret: Deno.env.get("REDDIT_CLIENT_SECRET"),
-      password: Deno.env.get("REDDIT_PASSWORD"),
-      username: Deno.env.get("REDDIT_USERNAME"),
-    };
-    if (envCreds.clientId) return envCreds;
+    const clientId = Deno.env.get("REDDIT_CLIENT_ID");
+    if (clientId) {
+      return {
+        clientId,
+        clientSecret: Deno.env.get("REDDIT_CLIENT_SECRET"),
+        password: Deno.env.get("REDDIT_PASSWORD"),
+        username: Deno.env.get("REDDIT_USERNAME"),
+      };
+    }
   }
 
-  // Fall back to credentials file (development/Node)
   try {
-    const creds = await import("./redditCredentials.mjs");
+    const { CLIENT_ID, CLIENT_SECRET, PASSWORD, USERNAME } = await import(
+      "./redditCredentials.mjs"
+    );
     return {
-      clientId: creds.CLIENT_ID,
-      clientSecret: creds.CLIENT_SECRET,
-      password: creds.PASSWORD,
-      username: creds.USERNAME,
+      clientId: CLIENT_ID,
+      clientSecret: CLIENT_SECRET,
+      password: PASSWORD,
+      username: USERNAME,
     };
   } catch {
     throw new Error(
-      "No credentials found. Set REDDIT_* environment variables or create redditCredentials.mjs"
+      "No credentials found. Set REDDIT_* environment variables or create redditCredentials.mjs",
     );
   }
 }
@@ -48,11 +50,7 @@ async function getAccessToken() {
       : btoa(`${clientId}:${clientSecret}`);
 
   const response = await fetch("https://www.reddit.com/api/v1/access_token", {
-    body: new URLSearchParams({
-      grant_type: "password",
-      password,
-      username,
-    }),
+    body: new URLSearchParams({ grant_type: "password", password, username }),
     headers: {
       Authorization: `Basic ${creds}`,
       "Content-Type": "application/x-www-form-urlencoded",
@@ -60,6 +58,7 @@ async function getAccessToken() {
     },
     method: "POST",
   });
+
   if (!response.ok) throw new Error(`Auth failed: HTTP ${response.status}`);
   const data = await response.json();
   if (!data.access_token) throw new Error("No access token in response");
@@ -70,7 +69,7 @@ async function getLatestDailyDiscussions(
   token,
   username,
   n = POSTS_TO_FETCH,
-  subreddit = SUBREDDIT
+  subreddit = SUBREDDIT,
 ) {
   const response = await fetch(
     `https://oauth.reddit.com/r/${subreddit}/new.json?limit=20`,
@@ -80,8 +79,9 @@ async function getLatestDailyDiscussions(
         Authorization: `bearer ${token}`,
         "User-Agent": `RedditMCPServer/1.0 by ${username}`,
       },
-    }
+    },
   );
+
   if (!response.ok) throw new Error(`Reddit API: HTTP ${response.status}`);
   const data = await response.json();
   const posts = data.data.children
@@ -89,6 +89,7 @@ async function getLatestDailyDiscussions(
     .filter((x) => DAILY_REGEX.test(x.title))
     .toSorted((a, b) => b.created_utc - a.created_utc)
     .slice(0, n);
+
   if (posts.length === 0) {
     throw new Error(`No Daily Discussion posts found in r/${subreddit}`);
   }
@@ -99,7 +100,7 @@ async function fetchThreadJson(
   token,
   username,
   threadId,
-  subreddit = SUBREDDIT
+  subreddit = SUBREDDIT,
 ) {
   const response = await fetch(
     `https://oauth.reddit.com/r/${subreddit}/comments/${threadId}.json?raw_json=1&limit=500`,
@@ -109,8 +110,9 @@ async function fetchThreadJson(
         Authorization: `bearer ${token}`,
         "User-Agent": `RedditMCPServer/1.0 by ${username}`,
       },
-    }
+    },
   );
+
   if (!response.ok) throw new Error(`Reddit API: HTTP ${response.status}`);
   return await response.json();
 }
@@ -119,26 +121,28 @@ function flattenComments(
   children,
   out = [],
   parentMap = new Map(),
-  postMeta = {}
+  postMeta = {},
 ) {
   for (const item of children) {
     if (item.kind !== "t1") continue;
     const d = item.data;
+    const parentId = d.parent_id.replace(/^t\d_/, "");
+
     out.push({
       author: d.author,
       body: d.body,
       id: d.id,
-      parent: d.parent_id.replace(/^t\d_/, ""),
+      parent: parentId,
       postCreated: postMeta.created_utc,
       postTitle: postMeta.title,
       postUrl: postMeta.url,
       score: d.score,
       utc: d.created_utc,
     });
-    if (!parentMap.has(d.parent_id.replace(/^t\d_/, ""))) {
-      parentMap.set(d.parent_id.replace(/^t\d_/, ""), []);
-    }
-    parentMap.get(d.parent_id.replace(/^t\d_/, "")).push(d.id);
+
+    if (!parentMap.has(parentId)) parentMap.set(parentId, []);
+    parentMap.get(parentId).push(d.id);
+
     d.replies?.data?.children &&
       flattenComments(d.replies.data.children, out, parentMap, postMeta);
   }
@@ -148,17 +152,18 @@ function flattenComments(
 function markExcludedComments(
   allComments,
   parentMap,
-  scoreThreshold = SCORE_THRESHOLD
+  scoreThreshold = SCORE_THRESHOLD,
 ) {
   const excludedIds = new Set(
     allComments
       .filter(
         (c) =>
           c.author === BOT_AUTHOR ||
-          (typeof c.score === "number" && c.score <= scoreThreshold)
+          (typeof c.score === "number" && c.score <= scoreThreshold),
       )
-      .map((c) => c.id)
+      .map((c) => c.id),
   );
+
   const stack = [...excludedIds];
   while (stack.length) {
     const current = stack.pop();
@@ -174,10 +179,12 @@ function markExcludedComments(
 }
 
 export async function exportRedditDailyComments(params = {}) {
-  const subreddit = params.subreddit ?? SUBREDDIT;
-  const intervalHours = params.intervalHours ?? 24;
-  const scoreThreshold = params.scoreThreshold ?? SCORE_THRESHOLD;
-  const writeToFile = params.writeToFile ?? false;
+  const {
+    subreddit = SUBREDDIT,
+    intervalHours = 24,
+    scoreThreshold = SCORE_THRESHOLD,
+    writeToFile = false,
+  } = params;
 
   const thresholdUtc = Date.now() / 1000 - intervalHours * 3600;
   const { token, username } = await getAccessToken();
@@ -185,10 +192,10 @@ export async function exportRedditDailyComments(params = {}) {
     token,
     username,
     POSTS_TO_FETCH,
-    subreddit
+    subreddit,
   );
 
-  // Gather and flatten comments from all posts with post meta
+  // Gather and flatten comments from all posts
   const allComments = [];
   const mergedParentMap = new Map();
 
@@ -202,8 +209,9 @@ export async function exportRedditDailyComments(params = {}) {
         created_utc: post.created_utc,
         title: post.title,
         url: `https://www.reddit.com${post.permalink}`,
-      }
+      },
     );
+
     allComments.push(...comments);
     for (const [pid, array] of parentMap) {
       if (!mergedParentMap.has(pid)) mergedParentMap.set(pid, []);
@@ -211,18 +219,16 @@ export async function exportRedditDailyComments(params = {}) {
     }
   }
 
-  // Exclude Bitty_Bot, -10 and below, and descendants (all posts together)
+  // Filter excluded comments and their descendants
   const toExclude = markExcludedComments(
     allComments,
     mergedParentMap,
-    scoreThreshold
+    scoreThreshold,
   );
-
-  // Only comments not excluded
   const notExcluded = allComments.filter((c) => !toExclude.has(c.id));
   const notExcludedMap = new Map(notExcluded.map((c) => [c.id, c]));
 
-  // Recent comments and their ancestors, by post
+  // Find recent comments and their ancestors
   const thresholded = notExcluded.filter((c) => c.utc >= thresholdUtc);
   const keep = new Set();
   for (const r of thresholded) {
@@ -241,8 +247,9 @@ export async function exportRedditDailyComments(params = {}) {
     const these = included.filter(
       (c) =>
         c.postTitle === post.title &&
-        c.postUrl === `https://www.reddit.com${post.permalink}`
+        c.postUrl === `https://www.reddit.com${post.permalink}`,
     );
+
     body += these.length
       ? these
           .map((c) => {
@@ -250,16 +257,13 @@ export async function exportRedditDailyComments(params = {}) {
             const reply = label.get(c.parent)
               ? ` [in reply to ${label.get(c.parent)}]`
               : "";
-            return `${label.get(c.id)} (${c.author}, ${time}, ${
-              c.score
-            } votes)${reply}: ${compact(c.body)}`;
+            return `${label.get(c.id)} (${c.author}, ${time}, ${c.score} votes)${reply}: ${compact(c.body)}`;
           })
           .join("\n\n")
       : "_No comments in time interval._\n";
   }
 
   const file = `reddit_${subreddit}_${Date.now()}_daily_${intervalHours}h.md`;
-
   const content = `# Reddit Comment Export
 - Subreddit: r/${subreddit}
 - Time interval: last ${intervalHours} hours
@@ -267,19 +271,11 @@ export async function exportRedditDailyComments(params = {}) {
 - Total comments: ${included.length}
 - File name: ${file}
 - Posts included:
-${posts
-  .map(
-    (p) =>
-      `    - "${compact(p.title)}" [${new Date(p.created_utc * 1000)
-        .toISOString()
-        .slice(0, 10)}]\n      https://www.reddit.com${p.permalink}`
-  )
-  .join("\n")}
+${posts.map((p) => `    - "${compact(p.title)}" [${new Date(p.created_utc * 1000).toISOString().slice(0, 10)}]\n      https://www.reddit.com${p.permalink}`).join("\n")}
 ---
 ${body}`;
 
   if (writeToFile) {
-    // Only import writeFile when needed (Node.js only)
     const { writeFile } = await import("node:fs/promises");
     await writeFile(file, content);
     return { content, file };
@@ -288,7 +284,7 @@ ${body}`;
   return { content };
 }
 
-// --- CLI entry point (Node.js only) ---
+// CLI entry point (Node.js only)
 if (
   typeof process !== "undefined" &&
   process.argv &&
@@ -298,6 +294,7 @@ if (
   const { fileURLToPath } = await import("node:url");
   const thisFile = resolve(fileURLToPath(import.meta.url));
   const entryFile = resolve(process.argv[1]);
+
   if (thisFile === entryFile) {
     try {
       const intervalHours = Number.parseFloat(process.argv[2]) || 24;
@@ -305,9 +302,9 @@ if (
         intervalHours,
         writeToFile: true,
       });
-      console.log(`✅  Exported to ${result.file}`);
+      console.log(`✅ Exported to ${result.file}`);
     } catch (error) {
-      console.error("❌  Export failed:", error?.message || error);
+      console.error("❌ Export failed:", error?.message || error);
       process.exitCode = 1;
     }
   }
