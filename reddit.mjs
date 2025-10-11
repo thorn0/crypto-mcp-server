@@ -26,7 +26,7 @@ async function getCredentials() {
 
   // Fall back to credentials file (development/Node)
   try {
-    const creds = await import("./reddit-credentials.mjs");
+    const creds = await import("./redditCredentials.mjs");
     return {
       clientId: creds.CLIENT_ID,
       clientSecret: creds.CLIENT_SECRET,
@@ -35,7 +35,7 @@ async function getCredentials() {
     };
   } catch {
     throw new Error(
-      "No credentials found. Set REDDIT_* environment variables or create reddit-credentials.mjs"
+      "No credentials found. Set REDDIT_* environment variables or create redditCredentials.mjs"
     );
   }
 }

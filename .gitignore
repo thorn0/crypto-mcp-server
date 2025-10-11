@@ -7,7 +7,7 @@ node_modules/
 .env.*
 
 # Credentials (IMPORTANT: Keep this secret!)
-reddit-credentials.mjs
+redditCredentials.mjs
 
 # Logs
 *.log
