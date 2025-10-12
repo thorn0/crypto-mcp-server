@@ -1,5 +1,5 @@
 {
-  "name": "mcp-reddit-server",
+  "name": "crypto-mcp-server",
   "version": "1.0.0",
   "description": "MCP server for ChatGPT that fetches latest daily threads from r/BitcoinMarkets and r/ethereum",
   "type": "module",
