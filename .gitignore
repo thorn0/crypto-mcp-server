@@ -4,10 +4,6 @@ node_modules/
 # Netlify
 .netlify/
 .env
-.env.*
-
-# Credentials (IMPORTANT: Keep this secret!)
-redditCredentials.mjs
 
 # Logs
 *.log
@@ -16,12 +12,6 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
 
 # Build outputs
 dist/
