@@ -15,8 +15,8 @@ MCP server for ChatGPT Developer Mode that fetches daily discussion threads from
 
 ```bash
 npm install
-cp redditCredentials.example.mjs redditCredentials.mjs
-# Edit redditCredentials.mjs with your Reddit API credentials
+cp .env.example .env
+# Edit .env with your Reddit API credentials
 ```
 
 Get credentials at: https://www.reddit.com/prefs/apps (create "script" type app)
@@ -70,7 +70,7 @@ The server:
 
 Credentials are auto-detected:
 
-- **Local dev**: Uses `redditCredentials.mjs`
+- **Local dev**: Uses `.env` file
 - **Production**: Uses Netlify environment variables
 
 ## Available Tools
@@ -106,7 +106,7 @@ You need 100,000+ queries/day to exceed free tier!
 ├── netlify/edge-functions/mcp.mjs  # MCP server (JSON-RPC 2.0)
 ├── test-mcp.mjs                    # Test script
 ├── netlify.toml                    # Netlify config
-└── redditCredentials.mjs          # Local credentials (gitignored)
+└── .env                            # Environment variables (gitignored)
 ```
 
 ## CLI Usage
@@ -120,7 +120,7 @@ node reddit.mjs 12           # Export last 12h to file
 
 ## Troubleshooting
 
-**Auth failed**: Check credentials in `redditCredentials.mjs` or environment variables
+**Auth failed**: Check credentials in `.env` file
 
 **Can't connect**: Ensure URL ends with `/mcp` and Developer Mode is enabled
 

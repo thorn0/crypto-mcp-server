@@ -26,21 +26,25 @@ async function getCredentials() {
     }
   }
 
-  try {
-    const { CLIENT_ID, CLIENT_SECRET, PASSWORD, USERNAME } = await import(
-      "./redditCredentials.mjs"
-    );
-    return {
-      clientId: CLIENT_ID,
-      clientSecret: CLIENT_SECRET,
-      password: PASSWORD,
-      username: USERNAME,
-    };
-  } catch {
-    throw new Error(
-      "No credentials found. Set REDDIT_* environment variables or create redditCredentials.mjs",
-    );
+  // Load dotenv for Node.js environment
+  if (typeof process !== "undefined") {
+    const dotenv = await import("dotenv");
+    dotenv.config();
+
+    const clientId = process.env.REDDIT_CLIENT_ID;
+    if (clientId) {
+      return {
+        clientId,
+        clientSecret: process.env.REDDIT_CLIENT_SECRET,
+        password: process.env.REDDIT_PASSWORD,
+        username: process.env.REDDIT_USERNAME,
+      };
+    }
   }
+
+  throw new Error(
+    "No credentials found. Set REDDIT_* environment variables in .env file",
+  );
 }
 
 async function getAccessToken() {

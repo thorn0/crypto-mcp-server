@@ -33,5 +33,8 @@
     "plugins": [
       "prettier-plugin-organize-imports"
     ]
+  },
+  "dependencies": {
+    "dotenv": "17.2.3"
   }
 }
