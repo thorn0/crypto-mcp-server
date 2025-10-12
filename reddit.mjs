@@ -66,25 +66,29 @@ async function getAccessToken() {
   return { token: data.access_token, username };
 }
 
+const makeRedditRequest = async (url, token, username) => {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `bearer ${token}`,
+      "User-Agent": `RedditMCPServer/1.0 by ${username}`,
+    },
+  });
+  if (!response.ok) throw new Error(`Reddit API: HTTP ${response.status}`);
+  return response.json();
+};
+
 async function getLatestDailyDiscussions(
   token,
   username,
   n = POSTS_TO_FETCH,
   subreddit = SUBREDDIT,
 ) {
-  const response = await fetch(
+  const data = await makeRedditRequest(
     `https://oauth.reddit.com/r/${subreddit}/new.json?limit=20`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `bearer ${token}`,
-        "User-Agent": `RedditMCPServer/1.0 by ${username}`,
-      },
-    },
+    token,
+    username,
   );
-
-  if (!response.ok) throw new Error(`Reddit API: HTTP ${response.status}`);
-  const data = await response.json();
   const posts = data.data.children
     .map((x) => x.data)
     .filter((x) => DAILY_REGEX.test(x.title))
@@ -103,19 +107,11 @@ async function fetchThreadJson(
   threadId,
   subreddit = SUBREDDIT,
 ) {
-  const response = await fetch(
+  return makeRedditRequest(
     `https://oauth.reddit.com/r/${subreddit}/comments/${threadId}.json?raw_json=1&limit=500`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `bearer ${token}`,
-        "User-Agent": `RedditMCPServer/1.0 by ${username}`,
-      },
-    },
+    token,
+    username,
   );
-
-  if (!response.ok) throw new Error(`Reddit API: HTTP ${response.status}`);
-  return await response.json();
 }
 
 export function flattenComments(

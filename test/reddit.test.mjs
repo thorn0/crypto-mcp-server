@@ -7,9 +7,9 @@
 import assert from "node:assert";
 import { describe, test } from "node:test";
 
-// Import the module
-const redditModule = await import("../reddit.mjs");
-const { compact, flattenComments, markExcludedComments } = redditModule;
+const { compact, flattenComments, markExcludedComments } = await import(
+  "../reddit.mjs"
+);
 
 // Helper to create mock Reddit comment data
 const createMockRedditComment = (
@@ -31,70 +31,58 @@ const createMockRedditComment = (
 });
 
 describe("compact() function", () => {
-  test("should normalize whitespace and line breaks", () => {
-    const input = "Hello   world\n\n\nThis   is   a   test\r\n\r\n";
-    const expected = "Hello world\nThis is a test";
+  const testCases = [
+    {
+      desc: "normalize whitespace and line breaks",
+      expected: "Hello world\nThis is a test",
+      input: "Hello   world\n\n\nThis   is   a   test\r\n\r\n",
+    },
+    { desc: "handle empty strings", expected: "", input: "" },
+    {
+      desc: "handle single line text",
+      expected: "Single line text",
+      input: "Single line text",
+    },
+    {
+      desc: "handle multiple spaces and tabs",
+      expected: "Hello world with spaces",
+      input: "Hello\t\t\tworld    with    spaces",
+    },
+    {
+      desc: "filter out empty lines",
+      expected: "Line 1\nLine 2\nLine 3",
+      input: "Line 1\n\n\nLine 2\r\n\r\nLine 3",
+    },
+    {
+      desc: "handle only whitespace",
+      expected: "",
+      input: "   \n\n\t\t\r\n   ",
+    },
+  ];
 
-    const result = compact(input);
-    assert.strictEqual(result, expected);
-  });
-
-  test("should handle empty strings", () => {
-    const input = "";
-    const expected = "";
-
-    const result = compact(input);
-    assert.strictEqual(result, expected);
-  });
-
-  test("should handle single line text", () => {
-    const input = "Single line text";
-    const expected = "Single line text";
-
-    const result = compact(input);
-    assert.strictEqual(result, expected);
-  });
-
-  test("should handle multiple spaces and tabs", () => {
-    const input = "Hello\t\t\tworld    with    spaces";
-    const expected = "Hello world with spaces";
-
-    const result = compact(input);
-    assert.strictEqual(result, expected);
-  });
-
-  test("should filter out empty lines", () => {
-    const input = "Line 1\n\n\nLine 2\r\n\r\nLine 3";
-    const expected = "Line 1\nLine 2\nLine 3";
-
-    const result = compact(input);
-    assert.strictEqual(result, expected);
-  });
-
-  test("should handle only whitespace", () => {
-    const input = "   \n\n\t\t\r\n   ";
-    const expected = "";
-
-    const result = compact(input);
-    assert.strictEqual(result, expected);
-  });
+  for (const { desc, expected, input } of testCases) {
+    test(`should ${desc}`, () => {
+      assert.strictEqual(compact(input), expected);
+    });
+  }
 });
 
 describe("flattenComments() function", () => {
+  const postMeta = {
+    created_utc: Date.now() / 1000,
+    title: "Test Post",
+    url: "https://reddit.com/test",
+  };
+
   test("should handle empty comment trees", () => {
     const result = flattenComments([], [], new Map(), {});
-
     assert.strictEqual(result.comments.length, 0);
     assert.strictEqual(result.parentMap.size, 0);
   });
 
   test("should flatten single comment", () => {
     const comments = [createMockRedditComment("c1", "user1", "Hello world")];
-    const result = flattenComments(comments, [], new Map(), {
-      created_utc: Date.now() / 1000,
-      title: "Test Post",
-      url: "https://reddit.com/test",
-    });
+    const result = flattenComments(comments, [], new Map(), postMeta);
 
     assert.strictEqual(result.comments.length, 1);
     assert.strictEqual(result.comments[0].author, "user1");
@@ -106,12 +94,11 @@ describe("flattenComments() function", () => {
   test("should skip non-comment items", () => {
     const items = [
       createMockRedditComment("c1", "user1", "Comment"),
-      { data: { id: "not_a_comment" }, kind: "t2" }, // Not a comment
+      { data: { id: "not_a_comment" }, kind: "t2" },
       createMockRedditComment("c2", "user2", "Another comment"),
     ];
 
     const result = flattenComments(items, [], new Map(), {});
-
     assert.strictEqual(result.comments.length, 2);
     assert.strictEqual(result.comments[0].id, "c1");
     assert.strictEqual(result.comments[1].id, "c2");
@@ -124,7 +111,6 @@ describe("flattenComments() function", () => {
     ];
 
     const result = flattenComments(comments, [], new Map(), {});
-
     assert.strictEqual(result.comments.length, 2);
     assert.ok(result.parentMap.has("post123"));
     assert.ok(result.parentMap.has("c1"));
@@ -134,7 +120,7 @@ describe("flattenComments() function", () => {
 
   test("should handle malformed comment data gracefully", () => {
     const malformedComments = [
-      { data: null, kind: "t1" }, // Missing data
+      { data: null, kind: "t1" },
       {
         data: {
           author: "user",
@@ -144,13 +130,11 @@ describe("flattenComments() function", () => {
           parent_id: "t3_post",
         },
         kind: "t1",
-      }, // Missing score but has required fields
+      },
       createMockRedditComment("c1", "user1", "Valid comment"),
     ];
 
     const result = flattenComments(malformedComments, [], new Map(), {});
-
-    // Should process the valid comment and the one with missing score
     assert.strictEqual(result.comments.length, 2);
     assert.strictEqual(result.comments[0].id, "test");
     assert.strictEqual(result.comments[1].id, "c1");
@@ -186,7 +170,6 @@ describe("flattenComments() function", () => {
     ];
 
     const result = flattenComments(comments, [], new Map(), {});
-
     assert.strictEqual(result.comments.length, 3);
     assert.strictEqual(result.comments[0].id, "c1");
     assert.strictEqual(result.comments[1].id, "c2");
@@ -203,9 +186,7 @@ describe("markExcludedComments() function", () => {
       { author: "Tricky_Troll", id: "c4", score: 3 },
     ];
 
-    const parentMap = new Map();
-    const result = markExcludedComments(comments, parentMap);
-
+    const result = markExcludedComments(comments, new Map());
     assert.ok(result.has("c1"));
     assert.ok(result.has("c3"));
     assert.ok(result.has("c4"));
@@ -214,14 +195,12 @@ describe("markExcludedComments() function", () => {
 
   test("should exclude low score comments", () => {
     const comments = [
-      { author: "user1", id: "c1", score: -15 }, // Below threshold
-      { author: "user2", id: "c2", score: -5 }, // Above threshold
-      { author: "user3", id: "c3", score: 10 }, // Positive score
+      { author: "user1", id: "c1", score: -15 },
+      { author: "user2", id: "c2", score: -5 },
+      { author: "user3", id: "c3", score: 10 },
     ];
 
-    const parentMap = new Map();
-    const result = markExcludedComments(comments, parentMap, -10);
-
+    const result = markExcludedComments(comments, new Map(), -10);
     assert.ok(result.has("c1"));
     assert.ok(!result.has("c2"));
     assert.ok(!result.has("c3"));
@@ -239,10 +218,8 @@ describe("markExcludedComments() function", () => {
       ["c1", ["c2"]],
       ["c2", ["c3"]],
     ]);
-
     const result = markExcludedComments(comments, parentMap);
 
-    // All comments should be excluded due to descendant chain
     assert.ok(result.has("c1"));
     assert.ok(result.has("c2"));
     assert.ok(result.has("c3"));
@@ -254,11 +231,7 @@ describe("markExcludedComments() function", () => {
       { author: "user2", id: "c2", score: -25 },
     ];
 
-    const parentMap = new Map();
-    const result = markExcludedComments(comments, parentMap, -20);
-
-    // With threshold -20, only scores <= -20 should be excluded
-    // c1 (-5) should NOT be excluded, c2 (-25) should be excluded
+    const result = markExcludedComments(comments, new Map(), -20);
     assert.ok(!result.has("c1"));
     assert.ok(result.has("c2"));
   });
@@ -270,20 +243,14 @@ describe("markExcludedComments() function", () => {
       { author: "user3", id: "c3", score: -15 },
     ];
 
-    const parentMap = new Map();
-    const result = markExcludedComments(comments, parentMap);
-
-    // Only c3 should be excluded (undefined/null scores are not numbers)
+    const result = markExcludedComments(comments, new Map());
     assert.ok(!result.has("c1"));
     assert.ok(!result.has("c2"));
     assert.ok(result.has("c3"));
   });
 
   test("should handle empty comments array", () => {
-    const comments = [];
-    const parentMap = new Map();
-    const result = markExcludedComments(comments, parentMap);
-
+    const result = markExcludedComments([], new Map());
     assert.strictEqual(result.size, 0);
   });
 
@@ -298,14 +265,12 @@ describe("markExcludedComments() function", () => {
 
     const parentMap = new Map([
       ["post123", ["c1"]],
-      ["c1", ["c2", "c4"]], // c1 has two children
+      ["c1", ["c2", "c4"]],
       ["c2", ["c3"]],
       ["c3", ["c5"]],
     ]);
-
     const result = markExcludedComments(comments, parentMap);
 
-    // All comments should be excluded due to bot author chain
     assert.ok(result.has("c1"));
     assert.ok(result.has("c2"));
     assert.ok(result.has("c3"));
@@ -316,7 +281,6 @@ describe("markExcludedComments() function", () => {
 
 describe("Integration tests", () => {
   test("should handle complete comment processing workflow", () => {
-    // Create a realistic comment tree
     const comments = [
       createMockRedditComment("c1", "user1", "Main comment", 5, "t3_post123"),
       createMockRedditComment("c2", "Bitty_Bot", "Bot comment", 1, "t1_c1"),
@@ -331,25 +295,22 @@ describe("Integration tests", () => {
       ),
     ];
 
-    // Flatten comments
     const flattened = flattenComments(comments, [], new Map(), {
       created_utc: Date.now() / 1000,
       title: "Test Post",
       url: "https://reddit.com/test",
     });
 
-    // Mark excluded comments
     const excluded = markExcludedComments(
       flattened.comments,
       flattened.parentMap,
     );
 
-    // Verify results
     assert.strictEqual(flattened.comments.length, 5);
-    assert.ok(excluded.has("c2")); // Bot comment
-    assert.ok(excluded.has("c3")); // Child of bot
-    assert.ok(excluded.has("c4")); // Low score
-    assert.ok(excluded.has("c5")); // Tricky_Troll bot
-    assert.ok(!excluded.has("c1")); // Good comment
+    assert.ok(excluded.has("c2"));
+    assert.ok(excluded.has("c3"));
+    assert.ok(excluded.has("c4"));
+    assert.ok(excluded.has("c5"));
+    assert.ok(!excluded.has("c1"));
   });
 });

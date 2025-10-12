@@ -22,11 +22,10 @@ const sendRequest = async (url, request) => {
 const showResult = (testName, data, expectError = false) => {
   console.log(`\n${testName}`);
   if (data.error) {
-    if (expectError) {
-      console.log("✅ Expected Error:", data.error.message);
-    } else {
-      console.log("❌ Error:", data.error.message);
-    }
+    console.log(
+      expectError ? "✅ Expected Error:" : "❌ Error:",
+      data.error.message,
+    );
   } else {
     console.log("✅ Success!");
     if (data.result?.content?.[0]?.text) {
@@ -43,61 +42,64 @@ const showResult = (testName, data, expectError = false) => {
 async function testMCP(url) {
   console.log(`\n🧪 Testing MCP Server: ${url}\n`);
 
-  // Test 1: Initialize
-  const initResult = await sendRequest(url, {
-    id: 1,
-    jsonrpc: "2.0",
-    method: "initialize",
-    params: {
-      clientInfo: { name: "test-client", version: "1.0.0" },
-      protocolVersion: "2024-11-05",
+  const tests = [
+    {
+      name: "Test 1: Initialize",
+      request: {
+        id: 1,
+        jsonrpc: "2.0",
+        method: "initialize",
+        params: {
+          clientInfo: { name: "test-client", version: "1.0.0" },
+          protocolVersion: "2024-11-05",
+        },
+      },
     },
-  });
-  showResult("Test 1: Initialize", initResult);
-
-  // Test 2: List Tools
-  const listResult = await sendRequest(url, {
-    id: 2,
-    jsonrpc: "2.0",
-    method: "tools/list",
-  });
-  showResult("Test 2: List Tools", listResult);
-
-  // Test 3: Call Tool (BitcoinMarkets)
-  console.log("\nTest 3: Call Tool - BitcoinMarkets");
-  console.log("⏳ Fetching (this may take 10-30 seconds)...");
-  const btcResult = await sendRequest(url, {
-    id: 3,
-    jsonrpc: "2.0",
-    method: "tools/call",
-    params: {
-      arguments: { intervalHours: 24, subreddit: "BitcoinMarkets" },
-      name: "fetch_reddit_daily_threads",
+    {
+      name: "Test 2: List Tools",
+      request: { id: 2, jsonrpc: "2.0", method: "tools/list" },
     },
-  });
-  showResult("", btcResult);
-
-  // Test 4: Call Tool (ethereum)
-  console.log("\nTest 4: Call Tool - ethereum");
-  console.log("⏳ Fetching (this may take 10-30 seconds)...");
-  const ethResult = await sendRequest(url, {
-    id: 4,
-    jsonrpc: "2.0",
-    method: "tools/call",
-    params: {
-      arguments: { intervalHours: 12, subreddit: "ethereum" },
-      name: "fetch_reddit_daily_threads",
+    {
+      loading: true,
+      name: "Test 3: Call Tool - BitcoinMarkets",
+      request: {
+        id: 3,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          arguments: { intervalHours: 24, subreddit: "BitcoinMarkets" },
+          name: "fetch_reddit_daily_threads",
+        },
+      },
     },
-  });
-  showResult("", ethResult);
+    {
+      loading: true,
+      name: "Test 4: Call Tool - ethereum",
+      request: {
+        id: 4,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          arguments: { intervalHours: 12, subreddit: "ethereum" },
+          name: "fetch_reddit_daily_threads",
+        },
+      },
+    },
+    {
+      expectError: true,
+      name: "Test 5: Invalid Method",
+      request: { id: 5, jsonrpc: "2.0", method: "invalid/method" },
+    },
+  ];
 
-  // Test 5: Invalid Method
-  const invalidResult = await sendRequest(url, {
-    id: 5,
-    jsonrpc: "2.0",
-    method: "invalid/method",
-  });
-  showResult("Test 5: Invalid Method", invalidResult, true);
+  for (const test of tests) {
+    if (test.loading)
+      console.log(
+        `\n${test.name}\n⏳ Fetching (this may take 10-30 seconds)...`,
+      );
+    const result = await sendRequest(url, test.request);
+    showResult(test.name, result, test.expectError);
+  }
 
   console.log("\n\n🎉 Testing complete!\n");
 }

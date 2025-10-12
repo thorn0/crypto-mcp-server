@@ -22,10 +22,10 @@ const TOOL = {
   name: "fetch_reddit_daily_threads",
 };
 
-const createResponse = (result, id) => ({
+const createResponse = (data, id) => ({
   jsonrpc: "2.0",
-  ...result,
-  ...(id !== undefined && { id }),
+  ...data,
+  ...(id && { id }),
 });
 
 const handlers = {
@@ -87,7 +87,6 @@ export default async (request) => {
 
   try {
     const body = await request.json();
-
     if (body.jsonrpc !== "2.0") {
       return jsonResponse(
         createResponse({
