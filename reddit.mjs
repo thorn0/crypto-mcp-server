@@ -1,10 +1,11 @@
 const SUBREDDIT = "BitcoinMarkets";
-const BOT_AUTHOR = "Bitty_Bot";
+const BOT_AUTHORS = new Set(["Bitty_Bot", "Tricky_Troll"]);
 const SCORE_THRESHOLD = -10;
-const DAILY_REGEX = /^\[daily discussion]/i;
+const DAILY_REGEX =
+  /^(\[daily discussion]|daily discussion|daily general discussion|daily thread)/i;
 const POSTS_TO_FETCH = 2;
 
-const compact = (s) =>
+export const compact = (s) =>
   s
     .replaceAll(/[\r\n]+/g, "\n")
     .split("\n")
@@ -117,16 +118,16 @@ async function fetchThreadJson(
   return await response.json();
 }
 
-function flattenComments(
+export function flattenComments(
   children,
   out = [],
   parentMap = new Map(),
   postMeta = {},
 ) {
   for (const item of children) {
-    if (item.kind !== "t1") continue;
+    if (item.kind !== "t1" || !item.data) continue;
     const d = item.data;
-    const parentId = d.parent_id.replace(/^t\d_/, "");
+    const parentId = d.parent_id?.replace(/^t\d_/, "") || "";
 
     out.push({
       author: d.author,
@@ -149,7 +150,7 @@ function flattenComments(
   return { comments: out, parentMap };
 }
 
-function markExcludedComments(
+export function markExcludedComments(
   allComments,
   parentMap,
   scoreThreshold = SCORE_THRESHOLD,
@@ -158,7 +159,7 @@ function markExcludedComments(
     allComments
       .filter(
         (c) =>
-          c.author === BOT_AUTHOR ||
+          BOT_AUTHORS.has(c.author) ||
           (typeof c.score === "number" && c.score <= scoreThreshold),
       )
       .map((c) => c.id),

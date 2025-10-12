@@ -19,10 +19,14 @@ const sendRequest = async (url, request) => {
   }
 };
 
-const showResult = (testName, data) => {
+const showResult = (testName, data, expectError = false) => {
   console.log(`\n${testName}`);
   if (data.error) {
-    console.log("❌ Error:", data.error.message);
+    if (expectError) {
+      console.log("✅ Expected Error:", data.error.message);
+    } else {
+      console.log("❌ Error:", data.error.message);
+    }
   } else {
     console.log("✅ Success!");
     if (data.result?.content?.[0]?.text) {
@@ -93,7 +97,7 @@ async function testMCP(url) {
     jsonrpc: "2.0",
     method: "invalid/method",
   });
-  showResult("Test 5: Invalid Method (should return error)", invalidResult);
+  showResult("Test 5: Invalid Method", invalidResult, true);
 
   console.log("\n\n🎉 Testing complete!\n");
 }

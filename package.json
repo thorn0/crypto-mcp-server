@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "netlify dev",
     "deploy": "netlify deploy --prod",
-    "test": "node testMcp.mjs",
+    "test": "node test/testMcp.mjs",
+    "test:unit": "node test/reddit.test.mjs",
     "lint": "eslint . --fix",
     "format": "prettier --write ."
   },
@@ -17,6 +18,7 @@
     "netlify",
     "edge-functions"
   ],
+  "private": true,
   "author": "",
   "license": "MIT",
   "devDependencies": {
