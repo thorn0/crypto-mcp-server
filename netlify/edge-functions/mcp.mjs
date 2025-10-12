@@ -22,27 +22,20 @@ const TOOL = {
   name: "fetch_reddit_daily_threads",
 };
 
-const createResponse = (data, id) => ({
-  jsonrpc: "2.0",
-  ...data,
-  ...(id && { id }),
-});
-
 const handlers = {
-  initialize: () =>
-    createResponse({
-      result: {
-        capabilities: { tools: {} },
-        protocolVersion: "2024-11-05",
-        serverInfo: { name: "reddit-daily-threads-server", version: "1.0.0" },
-      },
-    }),
+  initialize: () => ({
+    result: {
+      capabilities: { tools: {} },
+      protocolVersion: "2024-11-05",
+      serverInfo: { name: "reddit-daily-threads-server", version: "1.0.0" },
+    },
+  }),
 
   "tools/call": async (params) => {
     if (params.name !== TOOL.name) {
-      return createResponse({
+      return {
         error: { code: -32_601, message: `Tool not found: ${params.name}` },
-      });
+      };
     }
 
     try {
@@ -50,20 +43,20 @@ const handlers = {
         intervalHours: params.arguments?.intervalHours || 24,
         subreddit: params.arguments?.subreddit || "BitcoinMarkets",
       });
-      return createResponse({
+      return {
         result: { content: [{ text: content, type: "text" }] },
-      });
+      };
     } catch (error) {
-      return createResponse({
+      return {
         error: {
           code: -32_000,
           message: error.message || "Failed to fetch Reddit threads",
         },
-      });
+      };
     }
   },
 
-  "tools/list": () => createResponse({ result: { tools: [TOOL] } }),
+  "tools/list": () => ({ result: { tools: [TOOL] } }),
 };
 
 const jsonResponse = (data, status = 200) =>
@@ -77,6 +70,12 @@ const jsonResponse = (data, status = 200) =>
     status,
   });
 
+const createErrorResponse = (code, message, id) => ({
+  error: { code, message },
+  jsonrpc: "2.0",
+  ...(id && { id }),
+});
+
 export default async (request) => {
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", {
@@ -89,12 +88,11 @@ export default async (request) => {
     const body = await request.json();
     if (body.jsonrpc !== "2.0") {
       return jsonResponse(
-        createResponse({
-          error: {
-            code: -32_600,
-            message: "Invalid Request: jsonrpc must be 2.0",
-          },
-        }),
+        createErrorResponse(
+          -32_600,
+          "Invalid Request: jsonrpc must be 2.0",
+          body.id,
+        ),
         400,
       );
     }
@@ -102,19 +100,15 @@ export default async (request) => {
     const handler = handlers[body.method];
     const result = handler
       ? await handler(body.params)
-      : createResponse({
-          error: { code: -32_601, message: `Method not found: ${body.method}` },
-        });
+      : createErrorResponse(-32_601, `Method not found: ${body.method}`);
 
-    return jsonResponse(createResponse(result, body.id));
+    return jsonResponse({ jsonrpc: "2.0", ...result, id: body.id });
   } catch (error) {
     return jsonResponse(
-      createResponse({
-        error: {
-          code: -32_700,
-          message: "Parse error: " + (error.message || "Invalid JSON"),
-        },
-      }),
+      createErrorResponse(
+        -32_700,
+        "Parse error: " + (error.message || "Invalid JSON"),
+      ),
       400,
     );
   }
