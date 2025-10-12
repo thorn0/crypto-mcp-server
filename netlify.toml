@@ -1,5 +1,6 @@
 [build]
-  command = "echo 'No build command needed for edge functions'"
+  publish = "public"
+  command = "echo 'Edge function deployment ready'"
 
 [[edge_functions]]
   function = "mcp"

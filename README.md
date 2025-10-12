@@ -137,6 +137,7 @@ crypto-mcp-server/
 ├── netlify/edge-functions/mcp.mjs  # MCP server (JSON-RPC 2.0)
 ├── test/reddit.test.mjs            # Unit tests
 ├── test/testMcp.mjs                # MCP integration tests
+├── public/index.html               # Landing page for deployed site
 ├── netlify.toml                    # Netlify configuration
 └── package.json                    # Dependencies and scripts
 ```
@@ -160,7 +161,7 @@ node reddit.mjs 12     # Export last 12h to file
 | **Timeout**       | Request takes too long                     | Reduce `intervalHours` parameter (try 6 or 12)            |
 | **No Results**    | Empty response                             | Check if subreddit has recent daily threads               |
 | **Rate Limited**  | HTTP 429 errors                            | Wait a few minutes and try again                          |
-| **Deploy Failed** | `Deploy directory 'public' does not exist` | Use `netlify deploy --prod` (not `npm run deploy`)        |
+| **Deploy Failed** | `Deploy directory 'public' does not exist` | Ensure `public/` directory exists with `index.html`       |
 
 ## 🧪 Testing
 
