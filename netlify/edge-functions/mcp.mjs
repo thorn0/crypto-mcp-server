@@ -3,6 +3,12 @@ import { exportRedditDailyComments } from "../../reddit.mjs";
 const TOOL = {
   description:
     "Fetches latest daily discussion threads from r/BitcoinMarkets and r/ethereum with recent comments. Defaults to both subreddits, but can fetch from a single subreddit if specified.",
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    openWorldHint: true,
+    idempotentHint: true,
+  },
   inputSchema: {
     properties: {
       intervalHours: {
