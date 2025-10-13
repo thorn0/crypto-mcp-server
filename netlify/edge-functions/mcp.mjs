@@ -2,7 +2,7 @@ import { exportRedditDailyComments } from "../../reddit.mjs";
 
 const TOOL = {
   description:
-    "Fetches latest daily discussion threads from r/BitcoinMarkets or r/ethereum with recent comments",
+    "Fetches latest daily discussion threads from r/BitcoinMarkets and r/ethereum with recent comments. Defaults to both subreddits, but can fetch from a single subreddit if specified.",
   inputSchema: {
     properties: {
       intervalHours: {
@@ -11,12 +11,21 @@ const TOOL = {
         type: "number",
       },
       subreddit: {
-        description: "Subreddit to fetch from",
+        description:
+          "Single subreddit to fetch from (if not provided, fetches from both)",
         enum: ["BitcoinMarkets", "ethereum"],
         type: "string",
       },
+      subreddits: {
+        description:
+          "Multiple subreddits to fetch from (defaults to both BitcoinMarkets and ethereum)",
+        items: {
+          enum: ["BitcoinMarkets", "ethereum"],
+          type: "string",
+        },
+        type: "array",
+      },
     },
-    required: ["subreddit"],
     type: "object",
   },
   name: "fetch_reddit_daily_threads",
@@ -39,12 +48,16 @@ const handlers = {
     }
 
     try {
-      const { content } = await exportRedditDailyComments({
+      const result = await exportRedditDailyComments({
         intervalHours: params.arguments?.intervalHours || 24,
-        subreddit: params.arguments?.subreddit || "BitcoinMarkets",
+        subreddit: params.arguments?.subreddit || null,
+        subreddits: params.arguments?.subreddits || [
+          "BitcoinMarkets",
+          "ethereum",
+        ],
       });
       return {
-        result: { content: [{ text: content, type: "text" }] },
+        result: { content: [{ text: result.content, type: "text" }] },
       };
     } catch (error) {
       return {

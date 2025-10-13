@@ -181,78 +181,144 @@ export function markExcludedComments(
 
 export async function exportRedditDailyComments(params = {}) {
   const {
-    subreddit = SUBREDDIT,
+    subreddit = null,
+    subreddits = ["BitcoinMarkets", "ethereum"],
     intervalHours = 24,
     scoreThreshold = SCORE_THRESHOLD,
     writeToFile = false,
   } = params;
 
+  // Use single subreddit if specified, otherwise use multiple
+  const targetSubreddits = subreddit ? [subreddit] : subreddits;
+  const isSingleMode = !!subreddit;
+
   const thresholdUtc = Date.now() / 1000 - intervalHours * 3600;
   const { token, username } = await getAccessToken();
-  const posts = await getLatestDailyDiscussions(
-    token,
-    username,
-    POSTS_TO_FETCH,
-    subreddit,
+
+  // Fetch discussions from all subreddits in parallel
+  const subredditResults = await Promise.all(
+    targetSubreddits.map(async (subredditName) => {
+      try {
+        const posts = await getLatestDailyDiscussions(
+          token,
+          username,
+          POSTS_TO_FETCH,
+          subredditName,
+        );
+
+        // Gather and flatten comments from all posts
+        const allComments = [];
+        const mergedParentMap = new Map();
+
+        for (const post of posts) {
+          const data = await fetchThreadJson(
+            token,
+            username,
+            post.id,
+            subredditName,
+          );
+          const { comments, parentMap } = flattenComments(
+            data[1].data.children,
+            [],
+            new Map(),
+            {
+              created_utc: post.created_utc,
+              subreddit: subredditName,
+              title: post.title,
+              url: `https://www.reddit.com${post.permalink}`,
+            },
+          );
+
+          allComments.push(...comments);
+          for (const [pid, array] of parentMap) {
+            if (!mergedParentMap.has(pid)) mergedParentMap.set(pid, []);
+            mergedParentMap.get(pid).push(...array);
+          }
+        }
+
+        // Filter excluded comments and their descendants
+        const toExclude = markExcludedComments(
+          allComments,
+          mergedParentMap,
+          scoreThreshold,
+        );
+        const notExcluded = allComments.filter((c) => !toExclude.has(c.id));
+        const notExcludedMap = new Map(notExcluded.map((c) => [c.id, c]));
+
+        // Find recent comments and their ancestors
+        const thresholded = notExcluded.filter((c) => c.utc >= thresholdUtc);
+        const keep = new Set();
+        for (const r of thresholded) {
+          for (
+            let c = r;
+            c && !keep.has(c.id);
+            c = notExcludedMap.get(c.parent)
+          ) {
+            keep.add(c.id);
+          }
+        }
+
+        const included = notExcluded.filter((c) => keep.has(c.id));
+        return { comments: included, posts, subreddit: subredditName };
+      } catch (error) {
+        return {
+          comments: [],
+          error: error.message,
+          posts: [],
+          subreddit: subredditName,
+        };
+      }
+    }),
   );
 
-  // Gather and flatten comments from all posts
-  const allComments = [];
-  const mergedParentMap = new Map();
-
-  for (const post of posts) {
-    const data = await fetchThreadJson(token, username, post.id, subreddit);
-    const { comments, parentMap } = flattenComments(
-      data[1].data.children,
-      [],
-      new Map(),
-      {
-        created_utc: post.created_utc,
-        title: post.title,
-        url: `https://www.reddit.com${post.permalink}`,
-      },
-    );
-
-    allComments.push(...comments);
-    for (const [pid, array] of parentMap) {
-      if (!mergedParentMap.has(pid)) mergedParentMap.set(pid, []);
-      mergedParentMap.get(pid).push(...array);
-    }
-  }
-
-  // Filter excluded comments and their descendants
-  const toExclude = markExcludedComments(
-    allComments,
-    mergedParentMap,
-    scoreThreshold,
-  );
-  const notExcluded = allComments.filter((c) => !toExclude.has(c.id));
-  const notExcludedMap = new Map(notExcluded.map((c) => [c.id, c]));
-
-  // Find recent comments and their ancestors
-  const thresholded = notExcluded.filter((c) => c.utc >= thresholdUtc);
-  const keep = new Set();
-  for (const r of thresholded) {
-    for (let c = r; c && !keep.has(c.id); c = notExcludedMap.get(c.parent)) {
-      keep.add(c.id);
-    }
-  }
-
-  const included = notExcluded.filter((c) => keep.has(c.id));
-  const label = new Map(included.map((c, i) => [c.id, `Comment ${i + 1}`]));
-
-  // Build output
+  // Build unified output
   let body = "";
-  for (const post of posts) {
-    body += `\n\n## Comments from: "${compact(post.title)}"\n\n`;
-    const these = included.filter(
-      (c) =>
-        c.postTitle === post.title &&
-        c.postUrl === `https://www.reddit.com${post.permalink}`,
-    );
+  let totalComments = 0;
+  const label = new Map();
+  let commentCounter = 1;
 
-    body += these.length
-      ? these
+  for (const {
+    subreddit: subredditName,
+    posts,
+    comments,
+    error,
+  } of subredditResults) {
+    if (error) {
+      body += `\n\n## r/${subredditName} - Error\n\n_Error fetching discussions: ${error}_\n`;
+      continue;
+    }
+
+    if (!isSingleMode) {
+      body += `\n\n## r/${subredditName} Discussions\n\n`;
+    }
+    totalComments += comments.length;
+
+    if (posts.length === 0) {
+      body += "_No daily discussion posts found._\n";
+      continue;
+    }
+
+    for (const post of posts) {
+      const sectionTitle = isSingleMode
+        ? `## Comments from: "${compact(post.title)}"\n\n`
+        : `### Comments from: "${compact(post.title)}"\n\n`;
+      body += sectionTitle;
+
+      const these = comments.filter(
+        (c) =>
+          c.postTitle === post.title &&
+          c.postUrl === `https://www.reddit.com${post.permalink}`,
+      );
+
+      if (these.length > 0) {
+        // Assign labels to comments
+        for (const comment of these) {
+          if (!label.has(comment.id)) {
+            label.set(comment.id, `Comment ${commentCounter++}`);
+          }
+        }
+
+        body += these
           .map((c) => {
             const time = new Date(c.utc * 1000).toISOString().slice(0, 16);
             const reply = label.get(c.parent)
@@ -260,19 +326,49 @@ export async function exportRedditDailyComments(params = {}) {
               : "";
             return `${label.get(c.id)} (${c.author}, ${time}, ${c.score} votes)${reply}: ${compact(c.body)}`;
           })
-          .join("\n\n")
-      : "_No comments in time interval._\n";
+          .join("\n\n");
+      } else {
+        body += "_No comments in time interval._\n";
+      }
+      body += "\n";
+    }
   }
 
-  const file = `reddit_${subreddit}_${Date.now()}_daily_${intervalHours}h.md`;
-  const content = `# Reddit Comment Export
-- Subreddit: r/${subreddit}
+  // Generate appropriate file name and content
+  const subredditList = isSingleMode ? subreddit : targetSubreddits.join("_");
+  const file = `reddit_${subredditList}_${Date.now()}_daily_${intervalHours}h.md`;
+
+  const headerTitle = isSingleMode
+    ? "Reddit Comment Export"
+    : "Dual Subreddit Discussion Export";
+  const subredditInfo = isSingleMode
+    ? `- Subreddit: r/${subreddit}`
+    : `- Subreddits: ${targetSubreddits.map((s) => `r/${s}`).join(", ")}`;
+
+  const postsList = isSingleMode
+    ? subredditResults[0]?.posts
+        ?.map(
+          (p) =>
+            `    - "${compact(p.title)}" [${new Date(p.created_utc * 1000).toISOString().slice(0, 10)}]\n      https://www.reddit.com${p.permalink}`,
+        )
+        .join("\n") || ""
+    : subredditResults
+        .flatMap(({ subreddit: subredditName, posts }) =>
+          posts.map(
+            (p) =>
+              `    - r/${subredditName}: "${compact(p.title)}" [${new Date(p.created_utc * 1000).toISOString().slice(0, 10)}]\n      https://www.reddit.com${p.permalink}`,
+          ),
+        )
+        .join("\n");
+
+  const content = `# ${headerTitle}
+${subredditInfo}
 - Time interval: last ${intervalHours} hours
 - Exported: ${new Date().toISOString()} UTC
-- Total comments: ${included.length}
+- Total comments: ${totalComments}
 - File name: ${file}
 - Posts included:
-${posts.map((p) => `    - "${compact(p.title)}" [${new Date(p.created_utc * 1000).toISOString().slice(0, 10)}]\n      https://www.reddit.com${p.permalink}`).join("\n")}
+${postsList}
 ---
 ${body}`;
 

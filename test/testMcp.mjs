@@ -86,17 +86,31 @@ async function testMCP(url) {
       },
     },
     {
+      loading: true,
+      name: "Test 5: Call Tool - Both Subreddits (Default)",
+      request: {
+        id: 5,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          arguments: { intervalHours: 24 },
+          name: "fetch_reddit_daily_threads",
+        },
+      },
+    },
+    {
       expectError: true,
-      name: "Test 5: Invalid Method",
-      request: { id: 5, jsonrpc: "2.0", method: "invalid/method" },
+      name: "Test 6: Invalid Method",
+      request: { id: 6, jsonrpc: "2.0", method: "invalid/method" },
     },
   ];
 
   for (const test of tests) {
-    if (test.loading)
+    if (test.loading) {
       console.log(
         `\n${test.name}\n⏳ Fetching (this may take 10-30 seconds)...`,
       );
+    }
     const result = await sendRequest(url, test.request);
     showResult(test.name, result, test.expectError);
   }
