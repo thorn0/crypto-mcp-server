@@ -86,6 +86,27 @@ const TOOLS = [
       type: "object",
     },
   },
+  {
+    name: "fetch_all_crypto_data",
+    description:
+      "Fetches all crypto data in parallel: Binance 15m and 1h klines with ATR(14), Reddit daily discussion comments, and BTC ETF flows. Returns combined results. Use this for a full market snapshot.",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+      idempotentHint: true,
+    },
+    inputSchema: {
+      properties: {
+        intervalHours: {
+          default: 24,
+          description: "Hours to look back for Reddit comments (default: 24)",
+          type: "number",
+        },
+      },
+      type: "object",
+    },
+  },
 ];
 
 const toolHandlers = {
@@ -104,6 +125,28 @@ const toolHandlers = {
       interval: args?.interval || "15m",
       periodHours: args?.periodHours || 12,
     }),
+
+  fetch_all_crypto_data: async (args) => {
+    const wrap = async (label, fn) => {
+      try {
+        return { label, content: (await fn()).content };
+      } catch (e) {
+        return { label, content: `Error: ${e.message}` };
+      }
+    };
+
+    const results = await Promise.all([
+      wrap("BTCUSDT 15m Klines", () => exportBinanceKlines({ interval: "15m" })),
+      wrap("BTCUSDT 1h Klines (48h)", () => exportBinanceKlines({ interval: "1h", periodHours: 48 })),
+      wrap("Reddit Daily Discussions", () => exportRedditDailyComments({ intervalHours: args?.intervalHours || 24 })),
+      wrap("BTC ETF Flows", () => exportFarsideETF()),
+    ]);
+
+    const content = results
+      .map((r) => `=== ${r.label} ===\n${r.content}`)
+      .join("\n\n");
+    return { content };
+  },
 };
 
 const handlers = {
