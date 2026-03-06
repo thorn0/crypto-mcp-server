@@ -99,9 +99,48 @@ async function testMCP(url) {
       },
     },
     {
+      loading: true,
+      name: "Test 6: Call Tool - BTC ETF Flows",
+      request: {
+        id: 6,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          arguments: {},
+          name: "fetch_btc_etf_flows",
+        },
+      },
+    },
+    {
+      loading: true,
+      name: "Test 7: Call Tool - Binance Klines (15m, 1h)",
+      request: {
+        id: 7,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          arguments: { symbol: "BTCUSDT", interval: "15m", periodHours: 1 },
+          name: "fetch_binance_klines",
+        },
+      },
+    },
+    {
+      loading: true,
+      name: "Test 8: Call Tool - Binance Klines (1h, 24h)",
+      request: {
+        id: 8,
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          arguments: { symbol: "BTCUSDT", interval: "1h", periodHours: 24 },
+          name: "fetch_binance_klines",
+        },
+      },
+    },
+    {
       expectError: true,
-      name: "Test 6: Invalid Method",
-      request: { id: 6, jsonrpc: "2.0", method: "invalid/method" },
+      name: "Test 9: Invalid Method",
+      request: { id: 9, jsonrpc: "2.0", method: "invalid/method" },
     },
   ];
 
