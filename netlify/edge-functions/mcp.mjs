@@ -1,18 +1,17 @@
-import { exportRedditDailyComments } from "../../reddit.mjs";
 import { exportFarsideETF } from "../../etf.mjs";
 import { exportBinanceKlines } from "../../prices.mjs";
+import { exportRedditDailyComments } from "../../reddit.mjs";
 
 const TOOLS = [
   {
-    name: "fetch_reddit_daily_threads",
+    annotations: {
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+      readOnlyHint: true,
+    },
     description:
       "Fetches latest daily discussion threads from r/BitcoinMarkets and r/ethereum with recent comments. Defaults to both subreddits, but can fetch from a single subreddit if specified.",
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: true,
-      idempotentHint: true,
-    },
     inputSchema: {
       properties: {
         intervalHours: {
@@ -38,39 +37,34 @@ const TOOLS = [
       },
       type: "object",
     },
+    name: "fetch_reddit_daily_threads",
   },
   {
-    name: "fetch_btc_etf_flows",
+    annotations: {
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+      readOnlyHint: true,
+    },
     description:
       "Fetches Bitcoin ETF flow data from farside.co.uk, including daily net flows for all major spot BTC ETFs (IBIT, FBTC, BITB, ARKB, etc.). Returns CSV with dates and flow amounts in millions USD.",
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: true,
-      idempotentHint: true,
-    },
     inputSchema: {
       properties: {},
       type: "object",
     },
+    name: "fetch_btc_etf_flows",
   },
   {
-    name: "fetch_binance_klines",
+    annotations: {
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+      readOnlyHint: true,
+    },
     description:
       "Fetches historical Binance kline/candlestick data for a trading pair with ATR(14) indicator. Returns CSV with OHLCV data and Average True Range.",
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      openWorldHint: true,
-      idempotentHint: true,
-    },
     inputSchema: {
       properties: {
-        symbol: {
-          default: "BTCUSDT",
-          description: "Trading pair symbol (default: BTCUSDT)",
-          type: "string",
-        },
         interval: {
           default: "15m",
           description: "Candle interval",
@@ -82,20 +76,25 @@ const TOOLS = [
           description: "Hours of history to fetch (default: 12)",
           type: "number",
         },
+        symbol: {
+          default: "BTCUSDT",
+          description: "Trading pair symbol (default: BTCUSDT)",
+          type: "string",
+        },
       },
       type: "object",
     },
+    name: "fetch_binance_klines",
   },
   {
-    name: "fetch_all_crypto_data",
-    description:
-      "Fetches all crypto data in parallel: Binance 15m and 1h klines with ATR(14), Reddit daily discussion comments, and BTC ETF flows. Returns combined results. Use this for a full market snapshot.",
     annotations: {
-      readOnlyHint: true,
       destructiveHint: false,
-      openWorldHint: true,
       idempotentHint: true,
+      openWorldHint: true,
+      readOnlyHint: true,
     },
+    description:
+      "Fetches all crypto data in parallel: Binance 15m and 1h klines with ATR(14), Reddit daily discussion comments, and BTC ETF flows. Returns combined results. Use this for a full market snapshot. Really great for market updates or daily briefings.",
     inputSchema: {
       properties: {
         intervalHours: {
@@ -106,39 +105,30 @@ const TOOLS = [
       },
       type: "object",
     },
+    name: "fetch_all_crypto_data",
   },
 ];
 
 const toolHandlers = {
-  fetch_reddit_daily_threads: (args) =>
-    exportRedditDailyComments({
-      intervalHours: args?.intervalHours || 24,
-      subreddit: args?.subreddit || null,
-      subreddits: args?.subreddits || ["BitcoinMarkets", "ethereum"],
-    }),
-
-  fetch_btc_etf_flows: () => exportFarsideETF(),
-
-  fetch_binance_klines: (args) =>
-    exportBinanceKlines({
-      symbol: args?.symbol || "BTCUSDT",
-      interval: args?.interval || "15m",
-      periodHours: args?.periodHours || 12,
-    }),
-
   fetch_all_crypto_data: async (args) => {
     const wrap = async (label, fn) => {
       try {
-        return { label, content: (await fn()).content };
-      } catch (e) {
-        return { label, content: `Error: ${e.message}` };
+        return { content: (await fn()).content, label };
+      } catch (error) {
+        return { content: `Error: ${error.message}`, label };
       }
     };
 
     const results = await Promise.all([
-      wrap("BTCUSDT 15m Klines", () => exportBinanceKlines({ interval: "15m" })),
-      wrap("BTCUSDT 1h Klines (48h)", () => exportBinanceKlines({ interval: "1h", periodHours: 48 })),
-      wrap("Reddit Daily Discussions", () => exportRedditDailyComments({ intervalHours: args?.intervalHours || 24 })),
+      wrap("BTCUSDT 15m Klines", () =>
+        exportBinanceKlines({ interval: "15m" }),
+      ),
+      wrap("BTCUSDT 1h Klines (48h)", () =>
+        exportBinanceKlines({ interval: "1h", periodHours: 48 }),
+      ),
+      wrap("Reddit Daily Discussions", () =>
+        exportRedditDailyComments({ intervalHours: args?.intervalHours || 24 }),
+      ),
       wrap("BTC ETF Flows", () => exportFarsideETF()),
     ]);
 
@@ -147,6 +137,22 @@ const toolHandlers = {
       .join("\n\n");
     return { content };
   },
+
+  fetch_binance_klines: (args) =>
+    exportBinanceKlines({
+      interval: args?.interval || "15m",
+      periodHours: args?.periodHours || 12,
+      symbol: args?.symbol || "BTCUSDT",
+    }),
+
+  fetch_btc_etf_flows: () => exportFarsideETF(),
+
+  fetch_reddit_daily_threads: (args) =>
+    exportRedditDailyComments({
+      intervalHours: args?.intervalHours || 24,
+      subreddit: args?.subreddit || null,
+      subreddits: args?.subreddits || ["BitcoinMarkets", "ethereum"],
+    }),
 };
 
 const handlers = {
